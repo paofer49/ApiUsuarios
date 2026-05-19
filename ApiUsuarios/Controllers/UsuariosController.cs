@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using System.Data;
+using System.Security.Claims;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
@@ -23,6 +24,11 @@ namespace ApiUsuarios.Controllers
             _db = db;
         }
 
+        private int GetIdActual() =>
+            int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        private bool EsAdmin() => User.IsInRole("Administrador");
+
         // GET: api/<UsuariosController>
         [HttpGet]
         [Authorize(Roles = "Administrador")]
@@ -37,10 +43,31 @@ namespace ApiUsuarios.Controllers
             return Ok(usuarios);
         }
 
+        [HttpGet("me")]
+        public async Task<IActionResult> GetMe()
+        {
+            using var conexion = _db.ObtenerConexion();
+
+            var usuario = await conexion.QueryFirstOrDefaultAsync<Usuarios>(
+                "sp_ObtenerUsuarioId",
+                new { Id = GetIdActual() },
+                commandType: CommandType.StoredProcedure);
+
+            if (usuario == null)
+                return NotFound();
+
+            usuario.Contrasena = null; // nunca devolvemos la contraseña
+            return Ok(usuario);
+        }
+
         // GET api/<UsuariosController>/5
         [HttpGet("{id}")]
         public async Task<IActionResult> Get(int id)
         {
+
+            if (!EsAdmin() && GetIdActual() != id)
+                return Forbid();
+
             using var conexion = _db.ObtenerConexion();
 
             var usuario = await conexion.QueryFirstOrDefaultAsync<Usuarios>(
@@ -51,6 +78,7 @@ namespace ApiUsuarios.Controllers
             if (usuario == null)
                 return NotFound();
 
+            usuario.Contrasena = null;
             return Ok(usuario);
         }
 
@@ -78,6 +106,22 @@ namespace ApiUsuarios.Controllers
         [HttpPut("{id}")]
         public async Task<IActionResult> Put(int id, [FromBody] Usuarios usuario)
         {
+            if (!EsAdmin() && GetIdActual() != id)
+                return Forbid();
+
+            // Un usuario normal NO puede modificar sus propios puntos
+            if (!EsAdmin())
+            {
+                using var cx = _db.ObtenerConexion();
+                var actual = await cx.QueryFirstOrDefaultAsync<Usuarios>(
+                    "sp_ObtenerUsuarioId",
+                    new { Id = id },
+                    commandType: CommandType.StoredProcedure);
+
+                if (actual == null) return NotFound();
+                usuario.PuntosActuales = actual.PuntosActuales;
+            }
+
             using var conexion = _db.ObtenerConexion();
 
             await conexion.ExecuteAsync(
@@ -93,11 +137,11 @@ namespace ApiUsuarios.Controllers
                 },
                 commandType: CommandType.StoredProcedure);
 
-            return Ok("Usuario actualizado");
+            return Ok(new { mensaje = "Usuario actualizado" });
         }
 
         [HttpPatch("{id}/puntos")]
-        [Authorize(Roles = "Administrador, Usuario")]
+        [Authorize(Roles = "Administrador,Usuario")]
         public async Task<IActionResult> PatchPuntos(int id, int puntos)
         {
             using var conexion = _db.ObtenerConexion();
@@ -116,9 +160,11 @@ namespace ApiUsuarios.Controllers
 
         // DELETE api/<UsuariosController>/5
         [HttpDelete("{id}")]
-        [Authorize(Roles = "Administrador, Usuario")]
         public async Task<IActionResult> Delete(int id)
         {
+            if (!EsAdmin() && GetIdActual() != id)
+                return Forbid();
+
             using var conexion = _db.ObtenerConexion();
 
             await conexion.ExecuteAsync(
@@ -126,7 +172,7 @@ namespace ApiUsuarios.Controllers
                 new { Id = id },
                 commandType: CommandType.StoredProcedure);
 
-            return Ok("Usuario eliminado");
+            return Ok(new { mensaje = "Usuario eliminado" });
         }
     }
 }

@@ -1,9 +1,10 @@
 ﻿using ApiUsuarios.Data;
 using ApiUsuarios.Model;
-using Microsoft.AspNetCore.Mvc;
-using System.Data;
-using Microsoft.Data.SqlClient;
 using Dapper;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.SqlClient;
+using System.Data;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
@@ -11,6 +12,7 @@ namespace ApiUsuarios.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class UsuariosController : ControllerBase
     {
 
@@ -23,6 +25,7 @@ namespace ApiUsuarios.Controllers
 
         // GET: api/<UsuariosController>
         [HttpGet]
+        [Authorize(Roles = "Administrador")]
         public async Task<IActionResult> Get()
         {
             using var conexion = _db.ObtenerConexion();
@@ -52,24 +55,24 @@ namespace ApiUsuarios.Controllers
         }
 
         // POST api/<UsuariosController>
-        [HttpPost]
-        public async Task<IActionResult> Post([FromBody] Usuarios usuario)
-        {
-            using var conexion = _db.ObtenerConexion();
+        //[HttpPost]
+        //public async Task<IActionResult> Post([FromBody] Usuarios usuario)
+        //{
+        //    using var conexion = _db.ObtenerConexion();
 
-            await conexion.ExecuteAsync(
-                "sp_InsertarUsuario",
-                new
-                {
-                    usuario.Nombre,
-                    usuario.Apellido,
-                    usuario.Correo,
-                    usuario.Contrasena
-                },
-                commandType: CommandType.StoredProcedure);
+        //    await conexion.ExecuteAsync(
+        //        "sp_InsertarUsuario",
+        //        new
+        //        {
+        //            usuario.Nombre,
+        //            usuario.Apellido,
+        //            usuario.Correo,
+        //            usuario.Contrasena
+        //        },
+        //        commandType: CommandType.StoredProcedure);
 
-            return Ok("Usuario insertado");
-        }
+        //    return Ok("Usuario insertado");
+        //}
 
         // PUT api/<UsuariosController>/5
         [HttpPut("{id}")]
@@ -94,6 +97,7 @@ namespace ApiUsuarios.Controllers
         }
 
         [HttpPatch("{id}/puntos")]
+        [Authorize(Roles = "Administrador, Usuario")]
         public async Task<IActionResult> PatchPuntos(int id, int puntos)
         {
             using var conexion = _db.ObtenerConexion();
@@ -112,6 +116,7 @@ namespace ApiUsuarios.Controllers
 
         // DELETE api/<UsuariosController>/5
         [HttpDelete("{id}")]
+        [Authorize(Roles = "Administrador, Usuario")]
         public async Task<IActionResult> Delete(int id)
         {
             using var conexion = _db.ObtenerConexion();

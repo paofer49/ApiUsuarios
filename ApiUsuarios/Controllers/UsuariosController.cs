@@ -24,8 +24,7 @@ namespace ApiUsuarios.Controllers
             _db = db;
         }
 
-        private int GetIdActual() =>
-            int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        private int GetIdActual() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
         private bool EsAdmin() => User.IsInRole("Administrador");
 
@@ -173,6 +172,21 @@ namespace ApiUsuarios.Controllers
                 commandType: CommandType.StoredProcedure);
 
             return Ok(new { mensaje = "Usuario eliminado" });
+        }
+
+        [HttpGet("interno")]
+        [AllowAnonymous]
+        public async Task<IActionResult> ObtenerUsuariosInterno()
+        {
+            using var conexion = _db.ObtenerConexion();
+
+            var usuarios =
+                await conexion.QueryAsync<Usuarios>(
+                    "sp_ObtenerUsuarios",
+                    commandType:
+                        CommandType.StoredProcedure);
+
+            return Ok(usuarios);
         }
     }
 }

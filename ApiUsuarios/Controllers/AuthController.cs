@@ -17,11 +17,13 @@ namespace ApiUsuarios.Controllers
     {
         private readonly ConexionBD _db;
         private readonly IConfiguration _config;
+        private readonly IHttpClientFactory _httpClientFactory;
 
-        public AuthController(ConexionBD db, IConfiguration config)
+        public AuthController(ConexionBD db, IConfiguration config, IHttpClientFactory httpClientFactory)
         {
             _db = db;
             _config = config;
+            _httpClientFactory = httpClientFactory;
         }
 
         [HttpPost("registrar")]
@@ -30,12 +32,28 @@ namespace ApiUsuarios.Controllers
             using var conexion = _db.ObtenerConexion();
 
             // Usamos el nuevo SP que asigna el rol 'Usuario' automáticamente
-            await conexion.ExecuteAsync(
+            int nuevoId = await conexion.ExecuteScalarAsync<int>(
                 "sp_InsertarUsuario",
                 new { usuario.Nombre, usuario.Apellido, usuario.Correo, usuario.Contrasena },
                 commandType: CommandType.StoredProcedure);
 
+            // Notifica a ApiLogros en segundo plano (no bloquea la respuesta)
+            _ = NotificarNuevoUsuario(nuevoId);
+
             return Ok(new { mensaje = "Usuario registrado exitosamente" });
+        }
+
+        private async Task NotificarNuevoUsuario(int usuarioId)
+        {
+            try
+            {
+                var cliente = _httpClientFactory.CreateClient("ApiLogros");
+                await cliente.PostAsync($"Asignacion/asignar-nuevo-usuario/{usuarioId}", null);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Registro] Error al notificar ApiLogros: {ex.Message}");
+            }
         }
 
         [HttpPost("login")]

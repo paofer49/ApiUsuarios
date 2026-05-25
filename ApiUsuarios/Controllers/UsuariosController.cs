@@ -13,7 +13,7 @@ namespace ApiUsuarios.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize]
+    //[Authorize]
     public class UsuariosController : ControllerBase
     {
 
@@ -30,7 +30,7 @@ namespace ApiUsuarios.Controllers
 
         // GET: api/<UsuariosController>
         [HttpGet]
-        [Authorize(Roles = "Administrador")]
+        //[Authorize(Roles = "Administrador")]
         public async Task<IActionResult> Get()
         {
             using var conexion = _db.ObtenerConexion();
